@@ -1,11 +1,14 @@
 # Install
 BIN = demo
+BIN_PATH = bin/$(BIN)
 
 # Flags
 CFLAGS += -g -std=c89 -Wall -Wextra -pedantic
+CPPFLAGS += -MMD -MP
 
 SRC = main.c
 OBJ = $(SRC:.c=.o)
+DEP = $(OBJ:.o=.d)
 
 ifeq ($(OS),Windows_NT)
 BIN := $(BIN).exe
@@ -20,7 +23,20 @@ else
 	endif
 endif
 
-$(BIN):
-	@mkdir -p bin
-	rm -f bin/$(BIN) $(OBJS)
-	$(CC) $(SRC) $(CFLAGS) -o bin/$(BIN) $(LIBS)
+all: $(BIN_PATH)
+
+$(BIN_PATH): $(OBJ) | bin
+	$(CC) $(OBJ) $(CFLAGS) -o $@ $(LIBS)
+
+%.o: %.c
+	$(CC) $(CPPFLAGS) $(CFLAGS) -c $< -o $@
+
+bin:
+	@mkdir -p $@
+
+clean:
+	rm -f $(OBJ) $(DEP) $(BIN_PATH)
+
+.PHONY: all clean
+
+-include $(DEP)
