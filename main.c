@@ -137,7 +137,6 @@ int main(void)
     bg.r = 0.10f, bg.g = 0.18f, bg.b = 0.24f, bg.a = 1.0f;
     while (!glfwWindowShouldClose(win))
     {
-        printf("Hi there\n");
         /* Input */
         glfwPollEvents();
         nk_glfw3_new_frame(&glfw);
