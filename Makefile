@@ -1,5 +1,5 @@
 # Install
-BIN = demo
+BIN = hedge
 BIN_PATH = bin/$(BIN)
 
 # Flags
