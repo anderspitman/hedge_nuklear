@@ -6,7 +6,7 @@ BIN_PATH = bin/$(BIN)
 CFLAGS += -g -std=c89 -Wall -Wextra -pedantic
 CPPFLAGS += -MMD -MP
 
-SRC = main.c
+SRC = main.c nuklear_impl.c
 OBJ = $(SRC:.c=.o)
 DEP = $(OBJ:.o=.d)
 
