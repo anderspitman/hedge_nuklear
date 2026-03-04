@@ -1,13 +1,14 @@
 # Install
 BIN = hedge
-BIN_PATH = bin/$(BIN)
+BUILD_DIR = build
+BIN_PATH = $(BUILD_DIR)/$(BIN)
 
 # Flags
 CFLAGS += -g -std=c89 -Wall -Wextra -pedantic
 CPPFLAGS += -MMD -MP
 
 SRC = main.c nuklear_impl.c
-OBJ = $(SRC:.c=.o)
+OBJ = $(SRC:%.c=$(BUILD_DIR)/%.o)
 DEP = $(OBJ:.o=.d)
 
 ifeq ($(OS),Windows_NT)
@@ -25,17 +26,17 @@ endif
 
 all: $(BIN_PATH)
 
-$(BIN_PATH): $(OBJ) | bin
+$(BIN_PATH): $(OBJ) | $(BUILD_DIR)
 	$(CC) $(OBJ) $(CFLAGS) -o $@ $(LIBS)
 
-%.o: %.c
+$(BUILD_DIR)/%.o: %.c | $(BUILD_DIR)
 	$(CC) $(CPPFLAGS) $(CFLAGS) -c $< -o $@
 
-bin:
+$(BUILD_DIR):
 	@mkdir -p $@
 
 clean:
-	rm -f $(OBJ) $(DEP) $(BIN_PATH)
+	rm -rf $(BUILD_DIR)
 
 .PHONY: all clean
 
