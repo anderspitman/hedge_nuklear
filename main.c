@@ -22,7 +22,7 @@
 #include "nuklear.h"
 #include "nuklear_glfw_gl3.h"
 
-#include "eri.h"
+#include "eri_sdk.h"
 
 #define WINDOW_WIDTH 1200
 #define WINDOW_HEIGHT 800
@@ -30,8 +30,6 @@
 #define MAX_VERTEX_BUFFER 512 * 1024
 #define MAX_ELEMENT_BUFFER 128 * 1024
 
-typedef void (*EriInit)(void);
-typedef void (*EriUpdate)(void);
 
 static void error_callback(int e, const char *d)
 {printf("Error %d: %s\n", e, d);}
@@ -48,6 +46,13 @@ int main(int argc, char *argv[])
     const char *app_path = 0;
     EriInit eri_init = 0;
     EriUpdate eri_update = 0;
+    EriGetMsgBuf eri_get_in_msg_buf = 0;
+    EriGetMsgBuf eri_get_out_msg_buf = 0;
+    u8 *in_msg_buf = 0;
+    u8 *out_msg_buf = 0;
+    EriTlv tlv = {0};
+    EriSdkWidget *tree = 0;
+    u32 off = 0;
 
     if (argc < 2) {
         printf("Not enough args\n");
@@ -76,7 +81,33 @@ int main(int argc, char *argv[])
         exit(1);
     }
 
+    *(void **)(&eri_get_in_msg_buf) = dlsym(app_handle, "eri_get_in_msg_buf");
+    if (!eri_get_in_msg_buf) {
+        printf("%s\n", dlerror());
+        exit(1);
+    }
+
+    *(void **)(&eri_get_out_msg_buf) = dlsym(app_handle, "eri_get_out_msg_buf");
+    if (!eri_get_out_msg_buf) {
+        printf("%s\n", dlerror());
+        exit(1);
+    }
+
+    in_msg_buf = eri_get_in_msg_buf();
+    (void)in_msg_buf;
+    out_msg_buf = eri_get_out_msg_buf();
+
+    printf("0x%X\n", out_msg_buf[0]);
     eri_init();
+    printf("0x%X\n", out_msg_buf[0]);
+
+    off += erisdk_parse_tlv(out_msg_buf, &tlv);
+    printf("%d\n", tlv.len);
+
+    if (tlv.typ == ERI_OUT_MSG_SET_TREE) {
+        tree = erisdk_parse_tree(0, tlv.val, tlv.len);
+        (void)tree;
+    }
 
     /* GLFW */
     glfwSetErrorCallback(error_callback);
@@ -112,7 +143,7 @@ int main(int argc, char *argv[])
     bg.r = 0.10f, bg.g = 0.18f, bg.b = 0.24f, bg.a = 1.0f;
     while (!glfwWindowShouldClose(win))
     {
-        EriMsgWidgetPressed msg;
+        /*EriMsgWidgetPressed msg;*/
 
         /* Input */
         glfwPollEvents();
