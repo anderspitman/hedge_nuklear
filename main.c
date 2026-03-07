@@ -7,6 +7,7 @@
 #include <assert.h>
 #include <limits.h>
 #include <time.h>
+#include <dlfcn.h>
 
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
@@ -21,16 +22,21 @@
 #include "nuklear.h"
 #include "nuklear_glfw_gl3.h"
 
+#include "eri.h"
+
 #define WINDOW_WIDTH 1200
 #define WINDOW_HEIGHT 800
 
 #define MAX_VERTEX_BUFFER 512 * 1024
 #define MAX_ELEMENT_BUFFER 128 * 1024
 
+typedef void (*EriInit)(void);
+typedef void (*EriUpdate)(void);
+
 static void error_callback(int e, const char *d)
 {printf("Error %d: %s\n", e, d);}
 
-int main(void)
+int main(int argc, char *argv[])
 {
     /* Platform */
     struct nk_glfw glfw = {0};
@@ -38,6 +44,39 @@ int main(void)
     int width = 0, height = 0;
     struct nk_context *ctx;
     struct nk_colorf bg;
+    void *app_handle = 0;
+    const char *app_path = 0;
+    EriInit eri_init = 0;
+    EriUpdate eri_update = 0;
+
+    if (argc < 2) {
+        printf("Not enough args\n");
+        exit(1);
+    }
+
+    app_path = argv[1];
+
+    printf("app_path: %s\n", app_path);
+
+    app_handle = dlopen(app_path, RTLD_LAZY);
+    if (!app_handle) {
+        printf("%s\n", dlerror());
+        exit(1);
+    }
+
+    *(void **)(&eri_init) = dlsym(app_handle, "eri_init");
+    if (!eri_init) {
+        printf("%s\n", dlerror());
+        exit(1);
+    }
+
+    *(void **)(&eri_update) = dlsym(app_handle, "eri_update");
+    if (!eri_update) {
+        printf("%s\n", dlerror());
+        exit(1);
+    }
+
+    eri_init();
 
     /* GLFW */
     glfwSetErrorCallback(error_callback);
@@ -73,6 +112,8 @@ int main(void)
     bg.r = 0.10f, bg.g = 0.18f, bg.b = 0.24f, bg.a = 1.0f;
     while (!glfwWindowShouldClose(win))
     {
+        EriMsgWidgetPressed msg;
+
         /* Input */
         glfwPollEvents();
         nk_glfw3_new_frame(&glfw);
@@ -85,9 +126,17 @@ int main(void)
             nk_layout_row_static(ctx, 30, 80, 1);
             if (nk_button_label(ctx, "button")) {
                 fprintf(stdout, "button pressed\n");
+                /*if (NULL != message_handler) {
+                    msg.path = "/";
+                    msg.name = "button";
+                    message_handler(message_handler_callback_state, ERI_IN_MSG_WIDGET_PRESSED, &msg);
+                }
+                */
             }
         }
         nk_end(ctx);
+
+        eri_update();
 
         /* Draw */
         glfwGetWindowSize(win, &width, &height);
