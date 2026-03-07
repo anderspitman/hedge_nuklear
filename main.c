@@ -53,6 +53,8 @@ int main(int argc, char *argv[])
     EriTlv tlv = {0};
     EriSdkWidget *tree = 0;
     u32 off = 0;
+    EriSdkArena widget_arena = {0};
+    static u8 widget_buf[1*1024*1024];
 
     if (argc < 2) {
         printf("Not enough args\n");
@@ -97,15 +99,15 @@ int main(int argc, char *argv[])
     (void)in_msg_buf;
     out_msg_buf = eri_get_out_msg_buf();
 
-    printf("0x%X\n", out_msg_buf[0]);
+    erisdk_arena_init(&widget_arena, widget_buf, sizeof(widget_buf));
+
     eri_init();
-    printf("0x%X\n", out_msg_buf[0]);
 
     off += erisdk_parse_tlv(out_msg_buf, &tlv);
     printf("%d\n", tlv.len);
 
     if (tlv.typ == ERI_OUT_MSG_SET_TREE) {
-        tree = erisdk_parse_tree(0, tlv.val, tlv.len);
+        tree = erisdk_parse_tree(&widget_arena, tlv.val, tlv.len);
         (void)tree;
     }
 

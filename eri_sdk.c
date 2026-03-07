@@ -2,6 +2,38 @@
 
 #include "eri_sdk.h"
 
+void erisdk_arena_init(EriSdkArena *arena, u8 *buf, usize size) {
+    arena->offset = 0;
+    arena->buf = buf;
+    arena->size = size;
+}
+
+void *erisdk_arena_alloc(EriSdkArena *arena, usize size) {
+    usize padding = 0;
+    usize p = (usize)&arena->buf[arena->offset];
+    usize aligned = (p + (ARENA_ALIGNMENT - 1)) & ~(ARENA_ALIGNMENT - 1);
+
+    padding = aligned - p;
+
+    if (arena->offset + size + padding > arena->size) {
+        return 0;
+    }
+
+    arena->offset += size + padding;
+
+    return (void *)aligned;
+}
+
+i32 erisdk_arena_reset(EriSdkArena *arena, usize offset) {
+    if (offset >= arena->size) {
+        return -1;
+    }
+
+    arena->offset = offset;
+
+    return 0;
+}
+
 static void mcpy(const void *src, void *dst, usize size) {
     usize i = 0;
     const u8 *s = (const u8 *)src;
@@ -24,14 +56,13 @@ u32 erisdk_parse_tlv(u8 *buf, EriTlv *tlv) {
     return off;
 }
 
-u32 erisdk_parse_widget(EriSdkAlloc *a, u8 *buf, EriSdkWidget *wid, usize depth) {
+u32 erisdk_parse_widget(EriSdkArena *a, u8 *buf, EriSdkWidget *wid, usize depth) {
     EriTlv tlv = {0};
     usize off = 0;
     usize attr_off = 0;
     usize i = 0;
 
-    (void)a;
-    (void)wid;
+    wid = erisdk_arena_alloc(a, sizeof(EriSdkWidget));
 
     off += erisdk_parse_tlv(buf, &tlv);
 
@@ -72,7 +103,7 @@ u32 erisdk_parse_widget(EriSdkAlloc *a, u8 *buf, EriSdkWidget *wid, usize depth)
 }
 
 
-EriSdkWidget *erisdk_parse_tree(EriSdkAlloc *a, u8 *buf, usize size) {
+EriSdkWidget *erisdk_parse_tree(EriSdkArena *a, u8 *buf, usize size) {
     usize off = 0;
     EriSdkWidget *wid = 0;
 

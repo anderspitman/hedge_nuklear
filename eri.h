@@ -3,6 +3,8 @@
 
 typedef unsigned char u8;
 typedef char u8_must_be_1_byte[sizeof(u8) == 1 ? 1 : -1];
+typedef int i32;
+typedef char i32_must_be_4_bytes[sizeof(i32) == 4 ? 1 : -1];
 typedef unsigned int u32;
 typedef char u32_must_be_4_bytes[sizeof(u32) == 4 ? 1 : -1];
 typedef unsigned long usize;
