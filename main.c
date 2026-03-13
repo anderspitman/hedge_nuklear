@@ -34,6 +34,35 @@
 static void error_callback(int e, const char *d)
 {printf("Error %d: %s\n", e, d);}
 
+static void render_widget(EriSdkWidget *wid, struct nk_context *ctx, usize depth) {
+    usize i = 0;
+
+    switch (wid->type) {
+        case ERI_WIDGET_ROW: {
+            nk_layout_row_dynamic(ctx, 30, wid->num_children);
+            break;
+        }
+        case ERI_WIDGET_BUTTON: {
+            if (nk_button_label(ctx, wid->name)) {
+                printf("dabutton\n");
+            }
+            break;
+        }
+    }
+
+    for (i = 0; i < wid->num_children; i += 1) {
+        EriSdkWidget *child = wid->children[i];
+        render_widget(child, ctx, depth + 1);
+    }
+}
+
+static void render_tree(EriSdkWidget *tree, struct nk_context *ctx) {
+    if (tree == 0) {
+        return;
+    }
+    render_widget(tree, ctx, 0);
+}
+
 int main(int argc, char *argv[])
 {
     /* Platform */
@@ -107,8 +136,8 @@ int main(int argc, char *argv[])
     printf("%d\n", tlv.len);
 
     if (tlv.typ == ERI_OUT_MSG_SET_TREE) {
+
         tree = erisdk_parse_tree(&widget_arena, tlv.val, tlv.len);
-        (void)tree;
     }
 
     /* GLFW */
@@ -152,20 +181,8 @@ int main(int argc, char *argv[])
         nk_glfw3_new_frame(&glfw);
 
         /* GUI */
-        if (nk_begin(ctx, "Hedge", nk_rect(50, 50, 230, 250),
-            NK_WINDOW_BORDER|NK_WINDOW_MOVABLE|NK_WINDOW_SCALABLE|
-            NK_WINDOW_MINIMIZABLE|NK_WINDOW_TITLE))
-        {
-            nk_layout_row_static(ctx, 30, 80, 1);
-            if (nk_button_label(ctx, "button")) {
-                fprintf(stdout, "button pressed\n");
-                /*if (NULL != message_handler) {
-                    msg.path = "/";
-                    msg.name = "button";
-                    message_handler(message_handler_callback_state, ERI_IN_MSG_WIDGET_PRESSED, &msg);
-                }
-                */
-            }
+        if (nk_begin(ctx, "Hedge", nk_rect(0, 0, width, height), NULL)) {
+            render_tree(tree, ctx);
         }
         nk_end(ctx);
 

@@ -56,15 +56,17 @@ u32 erisdk_parse_tlv(u8 *buf, EriTlv *tlv) {
     return off;
 }
 
-u32 erisdk_parse_widget(EriSdkArena *a, u8 *buf, EriSdkWidget *wid, usize depth) {
+u32 erisdk_parse_widget(EriSdkArena *a, u8 *buf, EriSdkWidget **wid, usize depth) {
     EriTlv tlv = {0};
     usize off = 0;
     usize attr_off = 0;
     usize i = 0;
 
-    wid = erisdk_arena_alloc(a, sizeof(EriSdkWidget));
+    *wid = erisdk_arena_alloc(a, sizeof(EriSdkWidget));
 
     off += erisdk_parse_tlv(buf, &tlv);
+
+    (*wid)->type = tlv.typ;
 
     for (i = 0; i < (depth * 2); i++) {
         printf(" ");
@@ -78,18 +80,35 @@ u32 erisdk_parse_widget(EriSdkArena *a, u8 *buf, EriSdkWidget *wid, usize depth)
 
         switch (attr_tlv.typ) {
             case ERI_WIDGET_ATTR_NAME: {
+                (*wid)->name = attr_tlv.val;
                 break;
             }
             case ERI_WIDGET_ATTR_TEXT: {
+                (*wid)->text = attr_tlv.val;
                 break;
             }
             case ERI_WIDGET_ATTR_CHILDREN: {
                 usize child_off = 0;
-                EriSdkWidget *child;
+                EriSdkWidget **children = 0;
+                u32 num_children = 0;
+                usize cidx = 0;
 
                 while (child_off < attr_tlv.len) {
-                    child_off += erisdk_parse_widget(a, &attr_tlv.val[child_off], child, depth + 1);
+                    EriTlv dummy_tlv;
+                    child_off += erisdk_parse_tlv(&attr_tlv.val[child_off], &dummy_tlv);
+                    num_children += 1;
                 }
+
+                children = erisdk_arena_alloc(a, num_children * sizeof(EriSdkWidget));
+
+                child_off = 0;
+
+                for (cidx = 0; cidx < num_children && child_off < attr_tlv.len; cidx += 1) {
+                    child_off += erisdk_parse_widget(a, &attr_tlv.val[child_off], &children[cidx], depth + 1);
+                }
+
+                (*wid)->children = children;
+                (*wid)->num_children = num_children;
 
                 break;
             }
@@ -110,9 +129,8 @@ EriSdkWidget *erisdk_parse_tree(EriSdkArena *a, u8 *buf, usize size) {
     (void)a;
 
     while (off < size) {
-        off += erisdk_parse_widget(a, buf, wid, 0);
+        off += erisdk_parse_widget(a, buf, &wid, 0);
     }
-    printf("off: %lu\n", off);
 
-    return 0;
+    return wid;
 }
