@@ -23,6 +23,12 @@ typedef enum EriOutMsgType {
     ERI_OUT_MSG_SET_TREE = 0x10
 } EriOutMsgType;
 
+typedef enum EriMessageAttr {
+    ERI_MSG_ATTR_NAME = 0x50,
+    ERI_MSG_ATTR_PATH,
+    ERI_MSG_ATTR_TEXT
+} EriMessageAttr;
+
 typedef enum EriWidgetType {
     ERI_WIDGET_CONTAINER = 0x20,
     ERI_WIDGET_BUTTON,

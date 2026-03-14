@@ -39,10 +39,10 @@ typedef struct Context {
 static void error_callback(int e, const char *d)
 {printf("Error %d: %s\n", e, d);}
 
-static u32 in_msg_cb(u8 *buf, usize off, void *user_data) {
-    EriSdkStr *name = (EriSdkStr *)user_data;
-    printf("called: %s\n", erisdk_str_c(name));
-    return 0;
+static u32 button_press_callback(u8 *buf, usize off, void *user_data) {
+    EriSdkWidget *wid = (EriSdkWidget *)user_data;
+    off = erisdk_encode_tlv(buf, off, ERI_MSG_ATTR_NAME, erisdk_encode_str, &wid->name);
+    return off;
 }
 
 static void render_widget(Context *ctx, EriSdkWidget *wid, struct nk_context *nuk_ctx, usize depth) {
@@ -55,7 +55,8 @@ static void render_widget(Context *ctx, EriSdkWidget *wid, struct nk_context *nu
         }
         case ERI_WIDGET_BUTTON: {
             if (nk_button_label(nuk_ctx, erisdk_str_c(&wid->name))) {
-                erisdk_encode_tlv(ctx->in_msg_buf, ctx->in_msg_off, ERI_IN_MSG_WIDGET_PRESSED, in_msg_cb, &wid->name);
+                ctx->in_msg_off = erisdk_encode_tlv(ctx->in_msg_buf, ctx->in_msg_off, ERI_IN_MSG_WIDGET_PRESSED,
+                    button_press_callback, wid);
             }
             break;
         }
@@ -198,6 +199,8 @@ int main(int argc, char *argv[])
         nk_end(nuk_ctx);
 
         eri_update();
+        ctx.in_msg_buf[0] = 0;
+        ctx.in_msg_off = 0;
 
         /* Draw */
         glfwGetWindowSize(win, &width, &height);

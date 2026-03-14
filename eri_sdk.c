@@ -52,6 +52,10 @@ EriSdkStr erisdk_str_create(EriSdkArena *a, char *in_str, usize len) {
     return str;
 }
 
+usize erisdk_str_len(EriSdkStr *str) {
+    return str->len;
+}
+
 char *erisdk_str_c(EriSdkStr *str) {
     return str->ptr;
 }
@@ -82,6 +86,14 @@ u32 erisdk_encode_tlv(u8 *buf, usize off, EriType type, EriSdkTlvCallback cb, vo
     /* TODO: bad idea? */
     buf[off] = 0;
 
+    return off;
+}
+
+u32 erisdk_encode_str(u8 *buf, usize off, void *user_data) {
+    EriSdkStr *str = (EriSdkStr *)user_data;
+    usize len = erisdk_str_len(str);
+    mcpy(str->ptr, &buf[off], len);
+    off += len;
     return off;
 }
 
