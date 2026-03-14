@@ -39,11 +39,11 @@ static void render_widget(EriSdkWidget *wid, struct nk_context *ctx, usize depth
 
     switch (wid->type) {
         case ERI_WIDGET_ROW: {
-            nk_layout_row_dynamic(ctx, 30, wid->num_children);
+            nk_layout_row_dynamic(ctx, 60, wid->num_children);
             break;
         }
         case ERI_WIDGET_BUTTON: {
-            if (nk_button_label(ctx, wid->name)) {
+            if (nk_button_label(ctx, erisdk_str_c(&wid->name))) {
                 printf("dabutton\n");
             }
             break;
@@ -181,7 +181,7 @@ int main(int argc, char *argv[])
         nk_glfw3_new_frame(&glfw);
 
         /* GUI */
-        if (nk_begin(ctx, "Hedge", nk_rect(0, 0, width, height), NULL)) {
+        if (nk_begin(ctx, "Hedge", nk_rect(0, 0, width, height), 0)) {
             render_tree(tree, ctx);
         }
         nk_end(ctx);

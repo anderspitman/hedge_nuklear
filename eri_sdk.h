@@ -20,20 +20,28 @@ typedef struct EriSdkArena {
     usize size;
 } EriSdkArena;
 
+typedef struct EriSdkStr {
+    char *ptr;
+    u32 len;
+} EriSdkStr;
+
 
 typedef struct EriSdkWidget {
     EriWidgetType type;
     u32 background_color;
     u32 num_children;
     struct EriSdkWidget **children;
-    char *text;
-    char *name;
+    EriSdkStr text;
+    EriSdkStr name;
 } EriSdkWidget;
 
 
 void erisdk_arena_init(EriSdkArena *arena, u8 *buf, usize size);
 void *erisdk_arena_alloc(EriSdkArena *arena, usize size);
 i32 erisdk_arena_reset(EriSdkArena *arena, usize offset);
+
+/*EriSdkStr erisdk_str_create(char *ptr, usize len);*/
+char *erisdk_str_c(EriSdkStr *str);
 
 u32 erisdk_parse_tlv(u8 *buf, EriTlv *tlv);
 EriSdkWidget *erisdk_parse_tree(EriSdkArena *a, u8 *buf, usize size);

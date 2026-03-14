@@ -43,6 +43,19 @@ static void mcpy(const void *src, void *dst, usize size) {
     }
 }
 
+EriSdkStr erisdk_str_create(EriSdkArena *a, char *in_str, usize len) {
+    EriSdkStr str = {0};
+    str.ptr = erisdk_arena_alloc(a, len + 1);
+    mcpy(in_str, str.ptr, len);
+    str.ptr[len] = '\0';
+    str.len = len;
+    return str;
+}
+
+char *erisdk_str_c(EriSdkStr *str) {
+    return str->ptr;
+}
+
 u32 erisdk_parse_tlv(u8 *buf, EriTlv *tlv) {
     u32 off = 0;
 
@@ -80,11 +93,11 @@ u32 erisdk_parse_widget(EriSdkArena *a, u8 *buf, EriSdkWidget **wid, usize depth
 
         switch (attr_tlv.typ) {
             case ERI_WIDGET_ATTR_NAME: {
-                (*wid)->name = attr_tlv.val;
+                (*wid)->name = erisdk_str_create(a, (char *)attr_tlv.val, attr_tlv.len);
                 break;
             }
             case ERI_WIDGET_ATTR_TEXT: {
-                (*wid)->text = attr_tlv.val;
+                (*wid)->text = erisdk_str_create(a, (char *)attr_tlv.val, attr_tlv.len);
                 break;
             }
             case ERI_WIDGET_ATTR_CHILDREN: {
