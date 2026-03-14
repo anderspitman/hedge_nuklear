@@ -56,6 +56,35 @@ char *erisdk_str_c(EriSdkStr *str) {
     return str->ptr;
 }
 
+static u32 encode_type(u8 *buf, u32 off, EriType type) {
+    mcpy(&type, &buf[off], sizeof(EriType));
+    off += sizeof(EriType);
+    return off;
+}
+
+u32 erisdk_encode_tlv(u8 *buf, usize off, EriType type, EriSdkTlvCallback cb, void *user_data) {
+
+    usize len = 0;
+    usize len_off = 0;
+
+    off = encode_type(buf, off, type);
+
+    /* save offset of length and reserve space for it */
+    len_off = off;
+    off += sizeof(u32);
+
+    off = cb(buf, off, user_data);
+
+    /* write length */
+    len = off - len_off - sizeof(u32);
+    mcpy(&len, &buf[len_off], sizeof(u32));
+
+    /* TODO: bad idea? */
+    buf[off] = 0;
+
+    return off;
+}
+
 u32 erisdk_parse_tlv(u8 *buf, EriTlv *tlv) {
     u32 off = 0;
 

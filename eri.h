@@ -10,7 +10,14 @@ typedef char u32_must_be_4_bytes[sizeof(u32) == 4 ? 1 : -1];
 typedef unsigned long usize;
 typedef char usize_must_hold_pointer[sizeof(usize) >= sizeof(void*) ? 1 : -1];
 
+typedef u32 EriType;
+
 typedef u8 *(*EriGetMsgBuf)(void);
+
+typedef enum EriInMsgType {
+    ERI_IN_MSG_WIDGET_PRESSED = 0x40,
+    ERI_IN_MSG_TEXT_CHANGED
+} EriInMsgType;
 
 typedef enum EriOutMsgType {
     ERI_OUT_MSG_SET_TREE = 0x10

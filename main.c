@@ -30,21 +30,32 @@
 #define MAX_VERTEX_BUFFER 512 * 1024
 #define MAX_ELEMENT_BUFFER 128 * 1024
 
+typedef struct Context {
+    u8 *in_msg_buf;
+    usize in_msg_off;
+} Context;
+
 
 static void error_callback(int e, const char *d)
 {printf("Error %d: %s\n", e, d);}
 
-static void render_widget(EriSdkWidget *wid, struct nk_context *ctx, usize depth) {
+static u32 in_msg_cb(u8 *buf, usize off, void *user_data) {
+    EriSdkStr *name = (EriSdkStr *)user_data;
+    printf("called: %s\n", erisdk_str_c(name));
+    return 0;
+}
+
+static void render_widget(Context *ctx, EriSdkWidget *wid, struct nk_context *nuk_ctx, usize depth) {
     usize i = 0;
 
     switch (wid->type) {
         case ERI_WIDGET_ROW: {
-            nk_layout_row_dynamic(ctx, 60, wid->num_children);
+            nk_layout_row_dynamic(nuk_ctx, 60, wid->num_children);
             break;
         }
         case ERI_WIDGET_BUTTON: {
-            if (nk_button_label(ctx, erisdk_str_c(&wid->name))) {
-                printf("dabutton\n");
+            if (nk_button_label(nuk_ctx, erisdk_str_c(&wid->name))) {
+                erisdk_encode_tlv(ctx->in_msg_buf, ctx->in_msg_off, ERI_IN_MSG_WIDGET_PRESSED, in_msg_cb, &wid->name);
             }
             break;
         }
@@ -52,15 +63,16 @@ static void render_widget(EriSdkWidget *wid, struct nk_context *ctx, usize depth
 
     for (i = 0; i < wid->num_children; i += 1) {
         EriSdkWidget *child = wid->children[i];
-        render_widget(child, ctx, depth + 1);
+        render_widget(ctx, child, nuk_ctx, depth + 1);
     }
 }
 
-static void render_tree(EriSdkWidget *tree, struct nk_context *ctx) {
+static void render_tree(Context *ctx, EriSdkWidget *tree, struct nk_context *nuk_ctx) {
+    usize depth = 0;
     if (tree == 0) {
         return;
     }
-    render_widget(tree, ctx, 0);
+    render_widget(ctx, tree, nuk_ctx, depth);
 }
 
 int main(int argc, char *argv[])
@@ -69,7 +81,7 @@ int main(int argc, char *argv[])
     struct nk_glfw glfw = {0};
     static GLFWwindow *win;
     int width = 0, height = 0;
-    struct nk_context *ctx;
+    struct nk_context *nuk_ctx;
     struct nk_colorf bg;
     void *app_handle = 0;
     const char *app_path = 0;
@@ -77,13 +89,13 @@ int main(int argc, char *argv[])
     EriUpdate eri_update = 0;
     EriGetMsgBuf eri_get_in_msg_buf = 0;
     EriGetMsgBuf eri_get_out_msg_buf = 0;
-    u8 *in_msg_buf = 0;
     u8 *out_msg_buf = 0;
     EriTlv tlv = {0};
     EriSdkWidget *tree = 0;
     u32 off = 0;
     EriSdkArena widget_arena = {0};
     static u8 widget_buf[1*1024*1024];
+    Context ctx = {0};
 
     if (argc < 2) {
         printf("Not enough args\n");
@@ -124,8 +136,8 @@ int main(int argc, char *argv[])
         exit(1);
     }
 
-    in_msg_buf = eri_get_in_msg_buf();
-    (void)in_msg_buf;
+    ctx.in_msg_buf = eri_get_in_msg_buf();
+    ctx.in_msg_off = 0;
     out_msg_buf = eri_get_out_msg_buf();
 
     erisdk_arena_init(&widget_arena, widget_buf, sizeof(widget_buf));
@@ -136,7 +148,6 @@ int main(int argc, char *argv[])
     printf("%d\n", tlv.len);
 
     if (tlv.typ == ERI_OUT_MSG_SET_TREE) {
-
         tree = erisdk_parse_tree(&widget_arena, tlv.val, tlv.len);
     }
 
@@ -164,7 +175,7 @@ int main(int argc, char *argv[])
         exit(1);
     }
 
-    ctx = nk_glfw3_init(&glfw, win, NK_GLFW3_INSTALL_CALLBACKS);
+    nuk_ctx = nk_glfw3_init(&glfw, win, NK_GLFW3_INSTALL_CALLBACKS);
     {
         struct nk_font_atlas *atlas;
         nk_glfw3_font_stash_begin(&glfw, &atlas);
@@ -181,10 +192,10 @@ int main(int argc, char *argv[])
         nk_glfw3_new_frame(&glfw);
 
         /* GUI */
-        if (nk_begin(ctx, "Hedge", nk_rect(0, 0, width, height), 0)) {
-            render_tree(tree, ctx);
+        if (nk_begin(nuk_ctx, "Hedge", nk_rect(0, 0, width, height), 0)) {
+            render_tree(&ctx, tree, nuk_ctx);
         }
-        nk_end(ctx);
+        nk_end(nuk_ctx);
 
         eri_update();
 

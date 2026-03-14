@@ -43,6 +43,8 @@ i32 erisdk_arena_reset(EriSdkArena *arena, usize offset);
 /*EriSdkStr erisdk_str_create(char *ptr, usize len);*/
 char *erisdk_str_c(EriSdkStr *str);
 
+typedef u32(*EriSdkTlvCallback)(u8 *buf, usize off, void *user_data);
+u32 erisdk_encode_tlv(u8 *buf, usize off, EriType type, EriSdkTlvCallback cb, void *user_data);
 u32 erisdk_parse_tlv(u8 *buf, EriTlv *tlv);
 EriSdkWidget *erisdk_parse_tree(EriSdkArena *a, u8 *buf, usize size);
 
