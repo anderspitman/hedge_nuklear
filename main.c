@@ -47,8 +47,12 @@ static u32 button_press_callback(u8 *buf, usize off, void *user_data) {
 
 static void render_widget(Context *ctx, EriSdkWidget *wid, struct nk_context *nuk_ctx, usize depth) {
     usize i = 0;
+    (void)depth;
 
     switch (wid->type) {
+        case ERI_WIDGET_COLUMN: {
+            break;
+        }
         case ERI_WIDGET_ROW: {
             nk_layout_row_dynamic(nuk_ctx, 60, wid->num_children);
             break;
@@ -58,6 +62,14 @@ static void render_widget(Context *ctx, EriSdkWidget *wid, struct nk_context *nu
                 ctx->in_msg_off = erisdk_encode_tlv(ctx->in_msg_buf, ctx->in_msg_off, ERI_IN_MSG_WIDGET_PRESSED,
                     button_press_callback, wid);
             }
+            break;
+        }
+        case ERI_WIDGET_TEXTBOX: {
+            nk_layout_row_dynamic(nuk_ctx, 35, 1);
+            nk_edit_string_zero_terminated(nuk_ctx, NK_EDIT_READ_ONLY, erisdk_str_c(&wid->text), (int)erisdk_str_len(&wid->text) + 1, nk_filter_default);
+            break;
+        }
+        default: {
             break;
         }
     }
@@ -97,6 +109,8 @@ int main(int argc, char *argv[])
     EriSdkArena widget_arena = {0};
     static u8 widget_buf[1*1024*1024];
     Context ctx = {0};
+    const char *display_env = 0;
+    const char *wayland_env = 0;
 
     if (argc < 2) {
         printf("Not enough args\n");
@@ -154,9 +168,16 @@ int main(int argc, char *argv[])
 
     /* GLFW */
     glfwSetErrorCallback(error_callback);
+    display_env = getenv("DISPLAY");
+    wayland_env = getenv("WAYLAND_DISPLAY");
+    if ((display_env == 0 || display_env[0] == '\0') &&
+        (wayland_env == 0 || wayland_env[0] == '\0')) {
+        fprintf(stdout, "[GFLW] no display detected, skipping windowed run\n");
+        return tree != 0 ? 0 : 1;
+    }
     if (!glfwInit()) {
         fprintf(stdout, "[GFLW] failed to init!\n");
-        exit(1);
+        return tree != 0 ? 0 : 1;
     }
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
@@ -165,6 +186,11 @@ int main(int argc, char *argv[])
     glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
 #endif
     win = glfwCreateWindow(WINDOW_WIDTH, WINDOW_HEIGHT, "Hedge", NULL, NULL);
+    if (!win) {
+        fprintf(stdout, "[GFLW] failed to create window!\n");
+        glfwTerminate();
+        return tree != 0 ? 0 : 1;
+    }
     glfwMakeContextCurrent(win);
     glfwGetWindowSize(win, &width, &height);
 
@@ -199,6 +225,17 @@ int main(int argc, char *argv[])
         nk_end(nuk_ctx);
 
         eri_update();
+
+        if (out_msg_buf[0] != 0) {
+            off = 0;
+            erisdk_arena_reset(&widget_arena, 0);
+            off += erisdk_parse_tlv(out_msg_buf, &tlv);
+            if (tlv.typ == ERI_OUT_MSG_SET_TREE) {
+                tree = erisdk_parse_tree(&widget_arena, tlv.val, tlv.len);
+            }
+            out_msg_buf[0] = 0;
+        }
+
         ctx.in_msg_buf[0] = 0;
         ctx.in_msg_off = 0;
 

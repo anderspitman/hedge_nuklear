@@ -1,6 +1,23 @@
+#include <stdarg.h>
 #include <stdio.h>
 
 #include "eri_sdk.h"
+
+static u8 in_msg_buf[1*1024*1024];
+static u8 out_msg_buf[1*1024*1024];
+static usize out_offset = 0;
+static i32 print_file = -1;
+
+MessageHandlerCallback message_handler_callback = 0;
+void *message_handler_callback_state = 0;
+
+u8 *eri_get_in_msg_buf(void) {
+    return in_msg_buf;
+}
+
+u8 *eri_get_out_msg_buf(void) {
+    return out_msg_buf;
+}
 
 void erisdk_arena_init(EriSdkArena *arena, u8 *buf, usize size) {
     arena->offset = 0;
@@ -34,7 +51,7 @@ i32 erisdk_arena_reset(EriSdkArena *arena, usize offset) {
     return 0;
 }
 
-static void mcpy(const void *src, void *dst, usize size) {
+void mcpy(const void *src, void *dst, usize size) {
     usize i = 0;
     const u8 *s = (const u8 *)src;
     u8 *d = (u8 *)dst;
@@ -58,6 +75,107 @@ usize erisdk_str_len(EriSdkStr *str) {
 
 char *erisdk_str_c(EriSdkStr *str) {
     return str->ptr;
+}
+
+u8 str_eq(const char *a, const char *b) {
+    while (*a && (*a == *b)) {
+        a++;
+        b++;
+    }
+    return (u8)*a == (u8)*b;
+}
+
+u32 str_len(const char *str) {
+    u32 len = 0;
+    while (str[len] != '\0') {
+        len += 1;
+    }
+    return len;
+}
+
+void print(const char *msg) {
+    u32 len = 0;
+    if (-1 == print_file) {
+        print_file = eri_open("/dev/stdout");
+    }
+    len = str_len(msg);
+    eri_write(print_file, (u8 *)msg, len);
+}
+
+static i32 itoa(i32 value, char *buf) {
+    char *p = buf;
+    char *start = buf;
+    i32 v;
+    i32 count;
+    char c;
+
+    if (value < 0) {
+        v = -(value + 1);
+        v = v + 1;
+    } else {
+        v = value;
+    }
+
+    do {
+        *p++ = (char)('0' + (v % 10));
+        v /= 10;
+    } while (v != 0);
+
+    if (value < 0) {
+        *p++ = '-';
+    }
+
+    count = (i32)(p - buf);
+    p--;
+    while (start < p) {
+        c = *start;
+        *start = *p;
+        *p = c;
+        start++;
+        p--;
+    }
+
+    return count;
+}
+
+static char *vfmts(char *str, const char *fmt, va_list args) {
+    u32 i = 0;
+    u32 str_idx = 0;
+    i32 val = -1;
+
+    for (i = 0; fmt[i] != 0; i++) {
+        if (fmt[i] == '%') {
+            val = va_arg(args, i32);
+            str_idx += (u32)itoa(val, &str[str_idx]);
+        } else {
+            str[str_idx++] = fmt[i];
+        }
+    }
+
+    str[str_idx] = 0;
+    return str;
+}
+
+char *fmts(char *str, const char *fmt, ...) {
+    char *result;
+    va_list args;
+
+    va_start(args, fmt);
+    result = vfmts(str, fmt, args);
+    va_end(args);
+
+    return result;
+}
+
+void print_fmt(const char *fmt, ...) {
+    char buf[256];
+    va_list args;
+
+    va_start(args, fmt);
+    vfmts(buf, fmt, args);
+    va_end(args);
+
+    print(buf);
 }
 
 static u32 encode_type(u8 *buf, u32 off, EriType type) {
@@ -187,4 +305,147 @@ EriSdkWidget *erisdk_parse_tree(EriSdkArena *a, u8 *buf, usize size) {
     }
 
     return wid;
+}
+
+static void erisdk_widget_init(EriSdkWidget *widget, EriWidgetType type) {
+    widget->type = type;
+    widget->background_color = 0;
+    widget->num_children = 0;
+    widget->children = 0;
+    widget->text.ptr = 0;
+    widget->text.len = 0;
+    widget->name.ptr = 0;
+    widget->name.len = 0;
+}
+
+static EriSdkWidget *erisdk_widget(EriSdkArena *a, EriWidgetType type) {
+    EriSdkWidget *widget = erisdk_arena_alloc(a, sizeof(EriSdkWidget));
+    if (widget == 0) {
+        return 0;
+    }
+
+    erisdk_widget_init(widget, type);
+    return widget;
+}
+
+EriSdkWidget *erisdk_button(EriSdkArena *a, const char *txt) {
+    EriSdkWidget *widget = erisdk_widget(a, ERI_WIDGET_BUTTON);
+    usize len = str_len(txt);
+
+    if (widget == 0) {
+        return 0;
+    }
+
+    widget->text = erisdk_str_create(a, (char *)txt, len);
+    widget->name = erisdk_str_create(a, (char *)txt, len);
+    return widget;
+}
+
+EriSdkWidget *erisdk_edit_text(EriSdkArena *a, const char *txt) {
+    EriSdkWidget *widget = erisdk_widget(a, ERI_WIDGET_TEXTBOX);
+
+    if (widget == 0) {
+        return 0;
+    }
+
+    widget->text = erisdk_str_create(a, (char *)txt, str_len(txt));
+    return widget;
+}
+
+static EriSdkWidget *erisdk_container(EriSdkArena *a, EriWidgetType type, u32 count, va_list args) {
+    u32 i = 0;
+    EriSdkWidget *widget = erisdk_widget(a, type);
+
+    if (widget == 0) {
+        return 0;
+    }
+
+    widget->num_children = count;
+    widget->children = erisdk_arena_alloc(a, count * sizeof(EriSdkWidget *));
+    if (widget->children == 0) {
+        return 0;
+    }
+
+    for (i = 0; i < count; i++) {
+        widget->children[i] = va_arg(args, EriSdkWidget *);
+    }
+
+    return widget;
+}
+
+EriSdkWidget *erisdk_row(EriSdkArena *a, u32 count, ...) {
+    va_list args;
+    EriSdkWidget *widget = 0;
+
+    va_start(args, count);
+    widget = erisdk_container(a, ERI_WIDGET_ROW, count, args);
+    va_end(args);
+
+    return widget;
+}
+
+EriSdkWidget *erisdk_column(EriSdkArena *a, u32 count, ...) {
+    va_list args;
+    EriSdkWidget *widget = 0;
+
+    va_start(args, count);
+    widget = erisdk_container(a, ERI_WIDGET_COLUMN, count, args);
+    va_end(args);
+
+    return widget;
+}
+
+static u32 eri_encode_u32(u8 *buf, usize off, void *user_data) {
+    mcpy(user_data, &buf[off], sizeof(u32));
+    off += sizeof(u32);
+    return off;
+}
+
+static u32 eri_encode_widget(u8 *buf, usize off, void *user_data) {
+    EriSdkWidget *wid = (EriSdkWidget *)user_data;
+    u32 i = 0;
+
+    if (wid->background_color > 0) {
+        off = erisdk_encode_tlv(buf, off, ERI_WIDGET_ATTR_BG_COLOR, eri_encode_u32, &wid->background_color);
+    }
+    if (wid->name.ptr != 0) {
+        off = erisdk_encode_tlv(buf, off, ERI_WIDGET_ATTR_NAME, erisdk_encode_str, &wid->name);
+    }
+    if (wid->text.ptr != 0) {
+        off = erisdk_encode_tlv(buf, off, ERI_WIDGET_ATTR_TEXT, erisdk_encode_str, &wid->text);
+    }
+    if (wid->children != 0 && wid->num_children > 0) {
+        usize len = 0;
+        usize len_off = 0;
+
+        off = encode_type(buf, (u32)off, ERI_WIDGET_ATTR_CHILDREN);
+        len_off = off;
+        off += sizeof(u32);
+
+        for (i = 0; i < wid->num_children; i++) {
+            off = erisdk_encode_tlv(buf, off, wid->children[i]->type, eri_encode_widget, wid->children[i]);
+        }
+
+        len = off - len_off - sizeof(u32);
+        mcpy(&len, &buf[len_off], sizeof(u32));
+    }
+
+    return off;
+}
+
+static u32 eri_encode_set_tree_msg(u8 *buf, usize off, void *user_data) {
+    EriSdkWidget *tree = (EriSdkWidget *)user_data;
+    return erisdk_encode_tlv(buf, off, tree->type, eri_encode_widget, tree);
+}
+
+void eri_set_tree(EriSdkWidget *tree, const char *path) {
+    (void)path;
+
+    out_offset = 0;
+    out_offset = erisdk_encode_tlv(out_msg_buf, out_offset, ERI_OUT_MSG_SET_TREE, eri_encode_set_tree_msg, tree);
+}
+
+void eri_register_message_handler(MessageHandlerCallback callback, void *state) {
+    message_handler_callback = callback;
+    message_handler_callback_state = state;
 }

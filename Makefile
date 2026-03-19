@@ -14,7 +14,7 @@ else
 	GLEW_LIB = -lGLEW
 endif
 
-SRC = main.c nuklear_impl.c eri_sdk.c
+SRC = main.c nuklear_impl.c eri_sdk.c eri_sdk_linux.c
 OBJ = $(SRC:%.c=$(BUILD_DIR)/%.o)
 DEP = $(OBJ:.o=.d)
 
