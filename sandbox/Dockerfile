@@ -17,4 +17,4 @@ RUN curl -O https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux
 ENV PATH="/root/node/bin:${PATH}"
 RUN echo 'PATH="$HOME/node/bin:${PATH}"' >> .profile
 
-RUN npm install -g @openai/codex
+RUN npm install -g @openai/codex@0.125.0

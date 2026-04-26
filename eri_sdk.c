@@ -464,7 +464,6 @@ void erisdk_update(void) {
 
                 while (attr_off < tlv.len) {
                     attr_off += erisdk_parse_tlv(&tlv.val[attr_off], &attr_tlv);
-                    attr_off += attr_tlv.len;
 
                     switch (attr_tlv.typ) {
                         case ERI_MSG_ATTR_NAME:
@@ -494,7 +493,6 @@ void erisdk_update(void) {
 
                 while (attr_off < tlv.len) {
                     attr_off += erisdk_parse_tlv(&tlv.val[attr_off], &attr_tlv);
-                    attr_off += attr_tlv.len;
 
                     switch (attr_tlv.typ) {
                         case ERI_MSG_ATTR_TEXT:
@@ -522,7 +520,6 @@ void erisdk_update(void) {
             }
         }
 
-        off += tlv.len;
     }
 
     in_msg_buf[0] = 0;
