@@ -226,3 +226,15 @@ void eri_init(void) {
 
     erisdk_register_message_handler(message_handler, &state);
 }
+
+void eri_update(void) {
+    erisdk_update();
+}
+
+u8 *eri_get_in_msg_buf(void) {
+    return erisdk_get_in_msg_buf();
+}
+
+u8 *eri_get_out_msg_buf(void) {
+    return erisdk_get_out_msg_buf();
+}
