@@ -99,9 +99,9 @@ int main(int argc, char *argv[])
     void *app_handle = 0;
     const char *app_path = 0;
     EriInit eri_init = 0;
-    EriUpdate eri_update = 0;
-    EriGetMsgBuf eri_get_in_msg_buf = 0;
-    EriGetMsgBuf eri_get_out_msg_buf = 0;
+    EriUpdate erisdk_update = 0;
+    EriGetMsgBuf erisdk_get_in_msg_buf = 0;
+    EriGetMsgBuf erisdk_get_out_msg_buf = 0;
     u8 *out_msg_buf = 0;
     EriTlv tlv = {0};
     EriSdkWidget *tree = 0;
@@ -133,27 +133,27 @@ int main(int argc, char *argv[])
         exit(1);
     }
 
-    *(void **)(&eri_update) = dlsym(app_handle, "eri_update");
-    if (!eri_update) {
+    *(void **)(&erisdk_update) = dlsym(app_handle, "erisdk_update");
+    if (!erisdk_update) {
         printf("%s\n", dlerror());
         exit(1);
     }
 
-    *(void **)(&eri_get_in_msg_buf) = dlsym(app_handle, "eri_get_in_msg_buf");
-    if (!eri_get_in_msg_buf) {
+    *(void **)(&erisdk_get_in_msg_buf) = dlsym(app_handle, "erisdk_get_in_msg_buf");
+    if (!erisdk_get_in_msg_buf) {
         printf("%s\n", dlerror());
         exit(1);
     }
 
-    *(void **)(&eri_get_out_msg_buf) = dlsym(app_handle, "eri_get_out_msg_buf");
-    if (!eri_get_out_msg_buf) {
+    *(void **)(&erisdk_get_out_msg_buf) = dlsym(app_handle, "erisdk_get_out_msg_buf");
+    if (!erisdk_get_out_msg_buf) {
         printf("%s\n", dlerror());
         exit(1);
     }
 
-    ctx.in_msg_buf = eri_get_in_msg_buf();
+    ctx.in_msg_buf = erisdk_get_in_msg_buf();
     ctx.in_msg_off = 0;
-    out_msg_buf = eri_get_out_msg_buf();
+    out_msg_buf = erisdk_get_out_msg_buf();
 
     erisdk_arena_init(&widget_arena, widget_buf, sizeof(widget_buf));
 
@@ -224,7 +224,7 @@ int main(int argc, char *argv[])
         }
         nk_end(nuk_ctx);
 
-        eri_update();
+        erisdk_update();
 
         if (out_msg_buf[0] != 0) {
             off = 0;

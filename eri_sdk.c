@@ -1,6 +1,4 @@
 #include <stdarg.h>
-#include <stdio.h>
-
 #include "eri_sdk.h"
 
 static u8 in_msg_buf[1*1024*1024];
@@ -8,14 +6,15 @@ static u8 out_msg_buf[1*1024*1024];
 static usize out_offset = 0;
 static i32 print_file = -1;
 
-MessageHandlerCallback message_handler_callback = 0;
-void *message_handler_callback_state = 0;
+static MessageHandlerCallback message_handler_callback = 0;
+static void *message_handler_callback_state = 0;
+static char str_buf[1024];
 
-u8 *eri_get_in_msg_buf(void) {
+u8 *erisdk_get_in_msg_buf(void) {
     return in_msg_buf;
 }
 
-u8 *eri_get_out_msg_buf(void) {
+u8 *erisdk_get_out_msg_buf(void) {
     return out_msg_buf;
 }
 
@@ -51,7 +50,7 @@ i32 erisdk_arena_reset(EriSdkArena *arena, usize offset) {
     return 0;
 }
 
-void mcpy(const void *src, void *dst, usize size) {
+void erisdk_mcpy(const void *src, void *dst, usize size) {
     usize i = 0;
     const u8 *s = (const u8 *)src;
     u8 *d = (u8 *)dst;
@@ -60,10 +59,10 @@ void mcpy(const void *src, void *dst, usize size) {
     }
 }
 
-EriSdkStr erisdk_str_create(EriSdkArena *a, char *in_str, usize len) {
+static EriSdkStr erisdk_str_create(EriSdkArena *a, char *in_str, usize len) {
     EriSdkStr str = {0};
     str.ptr = erisdk_arena_alloc(a, len + 1);
-    mcpy(in_str, str.ptr, len);
+    erisdk_mcpy(in_str, str.ptr, len);
     str.ptr[len] = '\0';
     str.len = len;
     return str;
@@ -77,7 +76,7 @@ char *erisdk_str_c(EriSdkStr *str) {
     return str->ptr;
 }
 
-u8 str_eq(const char *a, const char *b) {
+u8 erisdk_str_eq(const char *a, const char *b) {
     while (*a && (*a == *b)) {
         a++;
         b++;
@@ -85,7 +84,7 @@ u8 str_eq(const char *a, const char *b) {
     return (u8)*a == (u8)*b;
 }
 
-u32 str_len(const char *str) {
+u32 erisdk_cstr_len(const char *str) {
     u32 len = 0;
     while (str[len] != '\0') {
         len += 1;
@@ -93,13 +92,13 @@ u32 str_len(const char *str) {
     return len;
 }
 
-void print(const char *msg) {
+void erisdk_print(const char *msg) {
     u32 len = 0;
     if (-1 == print_file) {
-        print_file = eri_open("/dev/stdout");
+        print_file = erisdk_open("/dev/stdout");
     }
-    len = str_len(msg);
-    eri_write(print_file, (u8 *)msg, len);
+    len = erisdk_cstr_len(msg);
+    erisdk_write(print_file, (u8 *)msg, len);
 }
 
 static i32 itoa(i32 value, char *buf) {
@@ -156,7 +155,7 @@ static char *vfmts(char *str, const char *fmt, va_list args) {
     return str;
 }
 
-char *fmts(char *str, const char *fmt, ...) {
+char *erisdk_fmts(char *str, const char *fmt, ...) {
     char *result;
     va_list args;
 
@@ -167,7 +166,7 @@ char *fmts(char *str, const char *fmt, ...) {
     return result;
 }
 
-void print_fmt(const char *fmt, ...) {
+void erisdk_print_fmt(const char *fmt, ...) {
     char buf[256];
     va_list args;
 
@@ -175,11 +174,11 @@ void print_fmt(const char *fmt, ...) {
     vfmts(buf, fmt, args);
     va_end(args);
 
-    print(buf);
+    erisdk_print(buf);
 }
 
 static u32 encode_type(u8 *buf, u32 off, EriType type) {
-    mcpy(&type, &buf[off], sizeof(EriType));
+    erisdk_mcpy(&type, &buf[off], sizeof(EriType));
     off += sizeof(EriType);
     return off;
 }
@@ -199,7 +198,7 @@ u32 erisdk_encode_tlv(u8 *buf, usize off, EriType type, EriSdkTlvCallback cb, vo
 
     /* write length */
     len = off - len_off - sizeof(u32);
-    mcpy(&len, &buf[len_off], sizeof(u32));
+    erisdk_mcpy(&len, &buf[len_off], sizeof(u32));
 
     /* TODO: bad idea? */
     buf[off] = 0;
@@ -210,7 +209,7 @@ u32 erisdk_encode_tlv(u8 *buf, usize off, EriType type, EriSdkTlvCallback cb, vo
 u32 erisdk_encode_str(u8 *buf, usize off, void *user_data) {
     EriSdkStr *str = (EriSdkStr *)user_data;
     usize len = erisdk_str_len(str);
-    mcpy(str->ptr, &buf[off], len);
+    erisdk_mcpy(str->ptr, &buf[off], len);
     off += len;
     return off;
 }
@@ -218,9 +217,9 @@ u32 erisdk_encode_str(u8 *buf, usize off, void *user_data) {
 u32 erisdk_parse_tlv(u8 *buf, EriTlv *tlv) {
     u32 off = 0;
 
-    mcpy(&buf[off], &tlv->typ, 4);
+    erisdk_mcpy(&buf[off], &tlv->typ, 4);
     off += 4;
-    mcpy(&buf[off], &tlv->len, 4);
+    erisdk_mcpy(&buf[off], &tlv->len, 4);
     off += 4;
     tlv->val = &buf[off];
     off += tlv->len;
@@ -228,22 +227,17 @@ u32 erisdk_parse_tlv(u8 *buf, EriTlv *tlv) {
     return off;
 }
 
-u32 erisdk_parse_widget(EriSdkArena *a, u8 *buf, EriSdkWidget **wid, usize depth) {
+static u32 erisdk_parse_widget(EriSdkArena *a, u8 *buf, EriSdkWidget **wid, usize depth) {
     EriTlv tlv = {0};
     usize off = 0;
     usize attr_off = 0;
-    usize i = 0;
 
     *wid = erisdk_arena_alloc(a, sizeof(EriSdkWidget));
 
     off += erisdk_parse_tlv(buf, &tlv);
 
     (*wid)->type = tlv.typ;
-
-    for (i = 0; i < (depth * 2); i++) {
-        printf(" ");
-    }
-    printf("0x%x\n", tlv.typ);
+    (void)depth;
 
     while (attr_off < tlv.len) {
         EriTlv attr_tlv = {0};
@@ -330,7 +324,7 @@ static EriSdkWidget *erisdk_widget(EriSdkArena *a, EriWidgetType type) {
 
 EriSdkWidget *erisdk_button(EriSdkArena *a, const char *txt) {
     EriSdkWidget *widget = erisdk_widget(a, ERI_WIDGET_BUTTON);
-    usize len = str_len(txt);
+    usize len = erisdk_cstr_len(txt);
 
     if (widget == 0) {
         return 0;
@@ -348,7 +342,7 @@ EriSdkWidget *erisdk_edit_text(EriSdkArena *a, const char *txt) {
         return 0;
     }
 
-    widget->text = erisdk_str_create(a, (char *)txt, str_len(txt));
+    widget->text = erisdk_str_create(a, (char *)txt, erisdk_cstr_len(txt));
     return widget;
 }
 
@@ -396,7 +390,7 @@ EriSdkWidget *erisdk_column(EriSdkArena *a, u32 count, ...) {
 }
 
 static u32 eri_encode_u32(u8 *buf, usize off, void *user_data) {
-    mcpy(user_data, &buf[off], sizeof(u32));
+    erisdk_mcpy(user_data, &buf[off], sizeof(u32));
     off += sizeof(u32);
     return off;
 }
@@ -427,7 +421,7 @@ static u32 eri_encode_widget(u8 *buf, usize off, void *user_data) {
         }
 
         len = off - len_off - sizeof(u32);
-        mcpy(&len, &buf[len_off], sizeof(u32));
+        erisdk_mcpy(&len, &buf[len_off], sizeof(u32));
     }
 
     return off;
@@ -438,14 +432,98 @@ static u32 eri_encode_set_tree_msg(u8 *buf, usize off, void *user_data) {
     return erisdk_encode_tlv(buf, off, tree->type, eri_encode_widget, tree);
 }
 
-void eri_set_tree(EriSdkWidget *tree, const char *path) {
+void erisdk_set_tree(EriSdkWidget *tree, const char *path) {
     (void)path;
 
     out_offset = 0;
     out_offset = erisdk_encode_tlv(out_msg_buf, out_offset, ERI_OUT_MSG_SET_TREE, eri_encode_set_tree_msg, tree);
 }
 
-void eri_register_message_handler(MessageHandlerCallback callback, void *state) {
+void erisdk_register_message_handler(MessageHandlerCallback callback, void *state) {
     message_handler_callback = callback;
     message_handler_callback_state = state;
+}
+
+void erisdk_update(void) {
+    u8 *in_msg_buf = erisdk_get_in_msg_buf();
+    EriTlv tlv;
+    usize off = 0;
+
+    while (in_msg_buf[off] != 0) {
+        u32 attr_off = 0;
+        EriTlv attr_tlv = {0};
+
+        off += erisdk_parse_tlv(&in_msg_buf[off], &tlv);
+
+        switch (tlv.typ) {
+            case ERI_IN_MSG_WIDGET_PRESSED: {
+                u32 str_off = 0;
+                EriMsgWidgetPressed msg;
+                msg.name = 0;
+                msg.path = 0;
+
+                while (attr_off < tlv.len) {
+                    attr_off += erisdk_parse_tlv(&tlv.val[attr_off], &attr_tlv);
+                    attr_off += attr_tlv.len;
+
+                    switch (attr_tlv.typ) {
+                        case ERI_MSG_ATTR_NAME:
+                            msg.name = &str_buf[str_off];
+                            break;
+                        case ERI_MSG_ATTR_PATH:
+                            msg.path = &str_buf[str_off];
+                            break;
+                        default:
+                            break;
+                    }
+
+                    erisdk_mcpy(attr_tlv.val, &str_buf[str_off], attr_tlv.len);
+                    str_off += attr_tlv.len;
+                    str_buf[str_off] = 0;
+                    str_off += 1;
+                }
+
+                message_handler_callback(message_handler_callback_state, ERI_IN_MSG_WIDGET_PRESSED, &msg);
+                break;
+            }
+            case ERI_IN_MSG_TEXT_CHANGED: {
+                u32 str_off = 0;
+                EriMsgTextChanged msg;
+                msg.text = 0;
+                msg.path = 0;
+
+                while (attr_off < tlv.len) {
+                    attr_off += erisdk_parse_tlv(&tlv.val[attr_off], &attr_tlv);
+                    attr_off += attr_tlv.len;
+
+                    switch (attr_tlv.typ) {
+                        case ERI_MSG_ATTR_TEXT:
+                            msg.text = &str_buf[str_off];
+                            break;
+                        case ERI_MSG_ATTR_PATH:
+                            msg.path = &str_buf[str_off];
+                            break;
+                        default:
+                            break;
+                    }
+
+                    erisdk_mcpy(attr_tlv.val, &str_buf[str_off], attr_tlv.len);
+                    str_off += attr_tlv.len;
+                    str_buf[str_off] = 0;
+                    str_off += 1;
+                }
+
+                message_handler_callback(message_handler_callback_state, ERI_IN_MSG_TEXT_CHANGED, &msg);
+                break;
+            }
+            default: {
+                erisdk_print_fmt("unknown message type: %\n", tlv.typ);
+                break;
+            }
+        }
+
+        off += tlv.len;
+    }
+
+    in_msg_buf[0] = 0;
 }

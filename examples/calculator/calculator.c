@@ -19,7 +19,7 @@ typedef struct AppState {
     Op op;
 } AppState;
 
-void init_state(AppState *s) {
+static void init_state(AppState *s) {
     s->root_widget = 0;
     s->ui_arena = 0;
     s->toff = 0;
@@ -32,7 +32,7 @@ void init_state(AppState *s) {
 }
 
 
-void render(AppState *state) {
+static void render(AppState *state) {
 
     EriSdkWidget *root;
     EriSdkArena *a = state->ui_arena;
@@ -67,10 +67,10 @@ void render(AppState *state) {
         )
     );
 
-    eri_set_tree(root, "/");
+    erisdk_set_tree(root, "/");
 }
 
-char op_to_char(Op op) {
+static char op_to_char(Op op) {
     switch(op) {
         case OP_ADD:
             return '+';
@@ -87,7 +87,7 @@ char op_to_char(Op op) {
     return 'N';
 }
 
-void handle_button(AppState *s, const char *btn_text) {
+static void handle_button(AppState *s, const char *btn_text) {
 
     i32 *r = 0;
     usize len = 0;
@@ -100,49 +100,49 @@ void handle_button(AppState *s, const char *btn_text) {
         r = &s->r2;
     }
 
-    if (str_eq("0", btn_text)) {
+    if (erisdk_str_eq("0", btn_text)) {
         *r = 10 * *r;
     }
-    else if (str_eq("1", btn_text)) {
+    else if (erisdk_str_eq("1", btn_text)) {
         *r = (10 * *r) + 1;
     }
-    else if (str_eq("2", btn_text)) {
+    else if (erisdk_str_eq("2", btn_text)) {
         *r = (10 * *r) + 2;
     }
-    else if (str_eq("3", btn_text)) {
+    else if (erisdk_str_eq("3", btn_text)) {
         *r = (10 * *r) + 3;
     }
-    else if (str_eq("4", btn_text)) {
+    else if (erisdk_str_eq("4", btn_text)) {
         *r = (10 * *r) + 4;
     }
-    else if (str_eq("5", btn_text)) {
+    else if (erisdk_str_eq("5", btn_text)) {
         *r = (10 * *r) + 5;
     }
-    else if (str_eq("6", btn_text)) {
+    else if (erisdk_str_eq("6", btn_text)) {
         *r = (10 * *r) + 6;
     }
-    else if (str_eq("7", btn_text)) {
+    else if (erisdk_str_eq("7", btn_text)) {
         *r = (10 * *r) + 7;
     }
-    else if (str_eq("8", btn_text)) {
+    else if (erisdk_str_eq("8", btn_text)) {
         *r = (10 * *r) + 8;
     }
-    else if (str_eq("9", btn_text)) {
+    else if (erisdk_str_eq("9", btn_text)) {
         *r = (10 * *r) + 9;
     }
-    else if (str_eq("+", btn_text)) {
+    else if (erisdk_str_eq("+", btn_text)) {
         s->op = OP_ADD;
     }
-    else if (str_eq("-", btn_text)) {
+    else if (erisdk_str_eq("-", btn_text)) {
         s->op = OP_SUB;
     }
-    else if (str_eq("*", btn_text)) {
+    else if (erisdk_str_eq("*", btn_text)) {
         s->op = OP_MUL;
     }
-    else if (str_eq("/", btn_text)) {
+    else if (erisdk_str_eq("/", btn_text)) {
         s->op = OP_DIV;
     }
-    else if (str_eq("=", btn_text)) {
+    else if (erisdk_str_eq("=", btn_text)) {
         if (s->r2 == 0) {
             s->r1 = 0;
         }
@@ -167,24 +167,24 @@ void handle_button(AppState *s, const char *btn_text) {
         s->op = OP_NONE;
     }
 
-    fmts(s->scratch, "%", s->r1);
-    len = str_len(s->scratch);
-    mcpy(s->scratch, s->cur_text, len);
+    erisdk_fmts(s->scratch, "%", s->r1);
+    len = erisdk_cstr_len(s->scratch);
+    erisdk_mcpy(s->scratch, s->cur_text, len);
     off += len;
 
     if (s->op != OP_NONE && s->r2 != 0) {
         s->cur_text[off++] = op_to_char(s->op);
 
-        fmts(s->scratch, "%", s->r2);
-        len = str_len(s->scratch);
-        mcpy(s->scratch, &s->cur_text[off], len);
+        erisdk_fmts(s->scratch, "%", s->r2);
+        len = erisdk_cstr_len(s->scratch);
+        erisdk_mcpy(s->scratch, &s->cur_text[off], len);
         off += len;
     }
 
     s->cur_text[off++] = '\0';
 }
 
-void message_handler(void *state_in, u32 type, void *msg) {
+static void message_handler(void *state_in, u32 type, void *msg) {
 
     AppState *s = 0;
 
@@ -197,8 +197,8 @@ void message_handler(void *state_in, u32 type, void *msg) {
 
             handle_button(s, pressed_msg->name);
 
-            print(s->cur_text);
-            print("\n");
+            erisdk_print(s->cur_text);
+            erisdk_print("\n");
 
             break;
         }
@@ -224,5 +224,5 @@ void eri_init(void) {
 
     render(&state);
 
-    eri_register_message_handler(message_handler, &state);
+    erisdk_register_message_handler(message_handler, &state);
 }
